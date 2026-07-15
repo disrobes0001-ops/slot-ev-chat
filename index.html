@@ -386,7 +386,7 @@
   function tryMachineLookup(query){
     var machine = findMachine(query);
     if(!machine) return null;
-    var gMatch = query.match(/(\d+)\s*[GgＧ]/);
+    var gMatch = query.match(/(\d+)\s*(?:[GgＧ]|ゲーム)/);
     var settingChanged = /設定変更後|設変/.test(query);
     var diffMatch = query.match(/差枚[^\d\-－]{0,4}([\-－]?[\d,]+)/) || query.match(/([\-－][\d,]+)\s*枚/);
     var diff = diffMatch ? Number(diffMatch[1].replace(/,/g,'').replace('－','-')) : null;
