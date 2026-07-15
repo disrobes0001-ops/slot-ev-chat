@@ -394,6 +394,34 @@
           {min:null, max:null, fromG:420}
         ]
       }
+    },
+    {
+      id: 'sengoku_musume5',
+      type: 'simple',
+      name: 'L戦国乙女5 業火を穿つ宿焔の双刃',
+      aliases: ['戦国乙女5','戦国乙女','せんごくむすめ5','せんごくむすめ','sengokumusume'],
+      denomInfo: 'AT間はデータカウンターの現在ゲーム数',
+      tableCondition: 'AT後のAT間天井期待値',
+      table: [
+        {fromG:150,  atRate:'1/345', ev:-803,  rate:97.7,  time:41, wage:-1182, sample:87817},
+        {fromG:200,  atRate:'1/363', ev:-1316, rate:96.4,  time:42, wage:-1871, sample:71365},
+        {fromG:250,  atRate:'1/355', ev:-1089, rate:97.0,  time:42, wage:-1571, sample:62798},
+        {fromG:300,  atRate:'1/342', ev:-725,  rate:97.9,  time:41, wage:-1074, sample:55840},
+        {fromG:350,  atRate:'1/330', ev:-350,  rate:99.0,  time:40, wage:-531,  sample:49365},
+        {fromG:400,  atRate:'1/317', ev:-11,   rate:100.0, time:39, wage:-17,   sample:43430},
+        {fromG:450,  atRate:'1/304', ev:392,   rate:101.2, time:37, wage:629,   sample:38155},
+        {fromG:500,  atRate:'1/288', ev:809,   rate:102.6, time:36, wage:1347,  sample:33511},
+        {fromG:550,  atRate:'1/271', ev:1343,  rate:104.4, time:35, wage:2322,  sample:29352},
+        {fromG:600,  atRate:'1/252', ev:1942,  rate:106.7, time:33, wage:3509,  sample:25664},
+        {fromG:650,  atRate:'1/232', ev:2544,  rate:109.3, time:32, wage:4833,  sample:22293},
+        {fromG:700,  atRate:'1/210', ev:3184,  rate:112.3, time:30, wage:6422,  sample:19254},
+        {fromG:750,  atRate:'1/187', ev:3823,  rate:115.8, time:28, wage:8231,  sample:16375},
+        {fromG:800,  atRate:'1/165', ev:4528,  rate:120.0, time:26, wage:10423, sample:13564},
+        {fromG:850,  atRate:'1/139', ev:5379,  rate:125.7, time:24, wage:13419, sample:11079},
+        {fromG:900,  atRate:'1/112', ev:6326,  rate:133.2, time:22, wage:17304, sample:8740},
+        {fromG:950,  atRate:'1/78',  ev:7297,  rate:143.7, time:19, wage:22810, sample:6780},
+        {fromG:1000, atRate:'1/38',  ev:8646,  rate:162.2, time:16, wage:32428, sample:4576}
+      ]
     }
   ];
   (function seedMachines(){
@@ -407,6 +435,7 @@
   })();
   var machines = window.__machines;
 
+  function rate1(n){ return Number(n).toFixed(1); }
   function findBracket(table, g){
     var row = table[0];
     for(var i=0;i<table.length;i++){ if(table[i].fromG <= g) row = table[i]; else break; }
@@ -512,16 +541,34 @@
     var ner = findNeraimeGuru(machine, { after: after, point: point });
     var lines2 = [];
     lines2.push(machine.name+' '+g+'G（'+(after?'AT駆け抜け後':'AT駆け抜け後以外')+'）の期待値');
-    lines2.push('AT初当り: '+row.atRate+' / 期待値: '+row.ev+'円 / 出玉率: '+row.rate+'% / 時給: '+row.wage+'円');
+    lines2.push('AT初当り: '+row.atRate+' / 期待値: '+row.ev+'円 / 出玉率: '+rate1(row.rate)+'% / 時給: '+row.wage+'円');
     lines2.push('※ '+machine.tableCondition);
     lines2.push('狙い目（'+ner.label+'）: 液晶'+ner.fromG+'Gから'+(g >= ner.fromG ? '　→ 狙い目圏内です' : '　→ あと'+(ner.fromG-g)+'Gで狙い目'));
     return { text: lines2.join('\n'), matchIds: [] };
+  }
+
+  function trySimpleLookup(machine, query){
+    var gMatch = query.match(/(\d+)\s*(?:[GgＧ]|ゲーム)/);
+    if(!gMatch){
+      var text = '『'+machine.name+'』のデータがあります。G数を含めて聞いてください（例：「'+machine.aliases[0]+' 500G 期待値ある？」）。';
+      if(machine.tableCondition) text += '\n※ '+machine.tableCondition;
+      return { text: text, matchIds: [] };
+    }
+    var g = Number(gMatch[1]);
+    var row = findBracket(machine.table, g);
+    var lines = [];
+    lines.push(machine.name+' '+g+'G の期待値');
+    lines.push('初当り: '+row.atRate+' / 期待値: '+row.ev+'円 / 出玉率: '+rate1(row.rate)+'% / 時給: '+row.wage+'円');
+    if(row.sample != null) lines.push('サンプル数: '+row.sample.toLocaleString()+'件');
+    if(machine.tableCondition) lines.push('※ '+machine.tableCondition);
+    return { text: lines.join('\n'), matchIds: [] };
   }
 
   function tryMachineLookup(query){
     var machine = findMachine(query);
     if(!machine) return null;
     if(machine.type === 'guru') return tryGuruLookup(machine, query);
+    if(machine.type === 'simple') return trySimpleLookup(machine, query);
     return tryHokutoLookup(machine, query);
   }
 
@@ -546,7 +593,15 @@
   function tableHTMLGuru(rows){
     var html = '<div class="dtblwrap"><table class="dtbl"><thead><tr><th>データG</th><th>AT初当り</th><th>期待値</th><th>出玉率</th><th>消化時間</th><th>時給</th></tr></thead><tbody>';
     rows.forEach(function(r){
-      html += '<tr><td>'+r.fromG+'-</td><td>'+r.atRate+'</td><td class="'+(r.ev>=0?'pl':'mi')+'">'+r.ev+'円</td><td>'+r.rate+'%</td><td>'+r.time+'分</td><td class="'+(r.wage>=0?'pl':'mi')+'">'+r.wage+'円</td></tr>';
+      html += '<tr><td>'+r.fromG+'-</td><td>'+r.atRate+'</td><td class="'+(r.ev>=0?'pl':'mi')+'">'+r.ev+'円</td><td>'+rate1(r.rate)+'%</td><td>'+r.time+'分</td><td class="'+(r.wage>=0?'pl':'mi')+'">'+r.wage+'円</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    return html;
+  }
+  function tableHTMLSimple(rows){
+    var html = '<div class="dtblwrap"><table class="dtbl"><thead><tr><th>G数</th><th>初当り</th><th>期待値</th><th>出玉率</th><th>消化時間</th><th>時給</th><th>サンプル数</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      html += '<tr><td>'+r.fromG+'-</td><td>'+r.atRate+'</td><td class="'+(r.ev>=0?'pl':'mi')+'">'+r.ev+'円</td><td>'+rate1(r.rate)+'%</td><td>'+r.time+'分</td><td class="'+(r.wage>=0?'pl':'mi')+'">'+r.wage+'円</td><td>'+(r.sample!=null?r.sample.toLocaleString():'')+'</td></tr>';
     });
     html += '</tbody></table></div>';
     return html;
@@ -572,6 +627,8 @@
       if(m.type === 'guru'){
         html += '<h4>'+esc(m.tableCondition)+'</h4>'+tableHTMLGuru(m.table);
         html += '<h4>狙い目ライン（'+esc(m.neraime.label)+'）</h4>'+neraimeHTMLGuru(m);
+      } else if(m.type === 'simple'){
+        html += '<h4>'+esc(m.tableCondition||'期待値')+'</h4>'+tableHTMLSimple(m.table);
       } else {
         html += '<h4>通常時 天井期待</h4>'+tableHTML(m.tables.normal);
         html += '<h4>設定変更後 天井期待</h4>'+tableHTML(m.tables.settingChanged);
