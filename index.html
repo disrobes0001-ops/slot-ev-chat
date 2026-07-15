@@ -300,6 +300,7 @@
   var DEFAULT_MACHINES = [
     {
       id: 'hokuto_smaslo',
+      type: 'hokuto',
       name: 'Lスマスロ北斗の拳',
       aliases: ['北斗の拳','北斗','ほくと','hokuto'],
       denomInfo: '46枚貸/52枚交換',
@@ -354,6 +355,45 @@
           {diffMin:1000,  diffMax:1499,  fromG:690}
         ]
       }
+    },
+    {
+      id: 'tokyo_ghoul_smaslo',
+      type: 'guru',
+      name: 'Lスマスロ東京喰種',
+      aliases: ['東京喰種','喰種','とうきょうぐーる','tokyoghoul','グール'],
+      denomInfo: '条件付きデータ（下記の条件でのみ有効）',
+      tableCondition: 'AT駆け抜け後・0スルー・1〜3回目のAT当選までのデータ',
+      table: [
+        {fromG:16,  atRate:'1/405', ev:-2376, rate:93.9,  time:45, wage:-3162},
+        {fromG:50,  atRate:'1/399', ev:-2160, rate:94.4,  time:45, wage:-2904},
+        {fromG:100, atRate:'1/396', ev:-2056, rate:94.7,  time:44, wage:-2779},
+        {fromG:150, atRate:'1/386', ev:-1712, rate:95.5,  time:44, wage:-2353},
+        {fromG:200, atRate:'1/372', ev:-1213, rate:96.7,  time:43, wage:-1709},
+        {fromG:250, atRate:'1/347', ev:-320,  rate:99.1,  time:41, wage:-472},
+        {fromG:300, atRate:'1/335', ev:91,    rate:100.3, time:40, wage:137},
+        {fromG:350, atRate:'1/306', ev:1138,  rate:103.5, time:38, wage:1815},
+        {fromG:400, atRate:'1/290', ev:1699,  rate:105.4, time:36, wage:2796},
+        {fromG:450, atRate:'1/260', ev:2779,  rate:109.3, time:34, wage:4878},
+        {fromG:500, atRate:'1/256', ev:2919,  rate:109.9, time:34, wage:5162},
+        {fromG:550, atRate:'1/224', ev:4052,  rate:114.8, time:32, wage:7715}
+      ],
+      neraime: {
+        label: 'CZスルー回数：0スルー',
+        afterNukegake: [
+          {min:1,  max:7,    fromG:420},
+          {min:8,  max:8,    fromG:395},
+          {min:9,  max:9,    fromG:330},
+          {min:10, max:10,   fromG:310},
+          {min:11, max:11,   fromG:305},
+          {min:12, max:12,   fromG:330},
+          {min:13, max:13,   fromG:405},
+          {min:14, max:15,   fromG:410},
+          {min:16, max:null, fromG:420}
+        ],
+        other: [
+          {min:null, max:null, fromG:420}
+        ]
+      }
     }
   ];
   (function seedMachines(){
@@ -400,9 +440,29 @@
     }
     return null;
   }
-  function tryMachineLookup(query){
-    var machine = findMachine(query);
-    if(!machine) return null;
+  function guruRangeLabel(r){
+    if(r.min == null && r.max == null) return '不問';
+    if(r.min === r.max) return r.min+'回';
+    if(r.max == null) return r.min+'回以降';
+    return r.min+'〜'+r.max+'回';
+  }
+  function findNeraimeGuru(machine, opts){
+    var rows = opts.after ? machine.neraime.afterNukegake : machine.neraime.other;
+    if(opts.point == null){
+      return { fromG: rows[0].fromG, label: opts.after ? '喰ポイント獲得回数 未指定' : '不問' };
+    }
+    var match = null;
+    for(var i=0;i<rows.length;i++){
+      var r = rows[i];
+      var minOk = r.min == null || opts.point >= r.min;
+      var maxOk = r.max == null || opts.point <= r.max;
+      if(minOk && maxOk){ match = r; break; }
+    }
+    if(!match) match = rows[rows.length-1];
+    return { fromG: match.fromG, label: guruRangeLabel(match) };
+  }
+
+  function tryHokutoLookup(machine, query){
     var gMatch = query.match(/(\d+)\s*(?:[GgＧ]|ゲーム)/);
     var settingChanged = /設定変更後|設変/.test(query);
     var diffMatch = query.match(/差枚[^\d\-－]{0,4}([\-－]?[\d,]+)/) || query.match(/([\-－][\d,]+)\s*枚/);
@@ -429,6 +489,42 @@
     return { text: lines2.join('\n'), matchIds: [] };
   }
 
+  function tryGuruLookup(machine, query){
+    var gMatch = query.match(/(\d+)\s*(?:[GgＧ]|ゲーム)/);
+    var after = !/駆け抜け(後)?以外|駆け抜けなし/.test(query);
+    var pointMatch = query.match(/ポイント[^\d]{0,4}(\d+)/) || query.match(/(\d+)\s*回/);
+    var point = pointMatch ? Number(pointMatch[1]) : null;
+
+    if(!gMatch){
+      var lines = ['『'+machine.name+'』のデータがあります（'+machine.tableCondition+'）。', 'G数を含めて聞いてください（例：「喰種 300G 期待値ある？」）。', '', '狙い目の目安（'+machine.neraime.label+'）：', '［AT駆け抜け後］'];
+      machine.neraime.afterNukegake.forEach(function(r){
+        lines.push('・喰ポイント'+guruRangeLabel(r)+'：液晶'+r.fromG+'Gから');
+      });
+      lines.push('［AT駆け抜け後以外］');
+      machine.neraime.other.forEach(function(r){
+        lines.push('・不問：液晶'+r.fromG+'Gから');
+      });
+      return { text: lines.join('\n'), matchIds: [] };
+    }
+
+    var g = Number(gMatch[1]);
+    var row = findBracket(machine.table, g);
+    var ner = findNeraimeGuru(machine, { after: after, point: point });
+    var lines2 = [];
+    lines2.push(machine.name+' '+g+'G（'+(after?'AT駆け抜け後':'AT駆け抜け後以外')+'）の期待値');
+    lines2.push('AT初当り: '+row.atRate+' / 期待値: '+row.ev+'円 / 出玉率: '+row.rate+'% / 時給: '+row.wage+'円');
+    lines2.push('※ '+machine.tableCondition);
+    lines2.push('狙い目（'+ner.label+'）: 液晶'+ner.fromG+'Gから'+(g >= ner.fromG ? '　→ 狙い目圏内です' : '　→ あと'+(ner.fromG-g)+'Gで狙い目'));
+    return { text: lines2.join('\n'), matchIds: [] };
+  }
+
+  function tryMachineLookup(query){
+    var machine = findMachine(query);
+    if(!machine) return null;
+    if(machine.type === 'guru') return tryGuruLookup(machine, query);
+    return tryHokutoLookup(machine, query);
+  }
+
   function tableHTML(rows){
     var html = '<div class="dtblwrap"><table class="dtbl"><thead><tr><th>開始G</th><th>期待値</th><th>時給</th></tr></thead><tbody>';
     rows.forEach(function(r){
@@ -447,13 +543,40 @@
     html += '</tbody></table></div>';
     return html;
   }
+  function tableHTMLGuru(rows){
+    var html = '<div class="dtblwrap"><table class="dtbl"><thead><tr><th>データG</th><th>AT初当り</th><th>期待値</th><th>出玉率</th><th>消化時間</th><th>時給</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      html += '<tr><td>'+r.fromG+'-</td><td>'+r.atRate+'</td><td class="'+(r.ev>=0?'pl':'mi')+'">'+r.ev+'円</td><td>'+r.rate+'%</td><td>'+r.time+'分</td><td class="'+(r.wage>=0?'pl':'mi')+'">'+r.wage+'円</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    return html;
+  }
+  function neraimeHTMLGuru(m){
+    function rowsHTML(rows, stateLabel){
+      var html = '';
+      rows.forEach(function(r){
+        html += '<tr><td>'+stateLabel+'</td><td>'+guruRangeLabel(r)+'</td><td>液晶'+r.fromG+'Gから</td></tr>';
+      });
+      return html;
+    }
+    var html = '<div class="dtblwrap"><table class="dtbl"><thead><tr><th>状態</th><th>喰ポイント獲得回数</th><th>狙い目</th></tr></thead><tbody>';
+    html += rowsHTML(m.neraime.afterNukegake, 'AT駆け抜け後');
+    html += rowsHTML(m.neraime.other, 'AT駆け抜け後以外');
+    html += '</tbody></table></div>';
+    return html;
+  }
   function renderMachineView(){
     var html = '';
     machines.forEach(function(m){
       html += '<div class="msec"><h3>'+esc(m.name)+'</h3><div class="hint">'+esc(m.denomInfo||'')+' ／ 呼び方: '+esc(m.aliases.join('、'))+'</div>';
-      html += '<h4>通常時 天井期待</h4>'+tableHTML(m.tables.normal);
-      html += '<h4>設定変更後 天井期待</h4>'+tableHTML(m.tables.settingChanged);
-      html += '<h4>狙い目ライン</h4>'+neraimeHTML(m);
+      if(m.type === 'guru'){
+        html += '<h4>'+esc(m.tableCondition)+'</h4>'+tableHTMLGuru(m.table);
+        html += '<h4>狙い目ライン（'+esc(m.neraime.label)+'）</h4>'+neraimeHTMLGuru(m);
+      } else {
+        html += '<h4>通常時 天井期待</h4>'+tableHTML(m.tables.normal);
+        html += '<h4>設定変更後 天井期待</h4>'+tableHTML(m.tables.settingChanged);
+        html += '<h4>狙い目ライン</h4>'+neraimeHTML(m);
+      }
       html += '</div>';
     });
     document.getElementById('machineBody').innerHTML = html;
