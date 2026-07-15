@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#0e1117">
 <title>期待値メモ</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -32,7 +32,10 @@
     background:var(--bg); color:var(--txt);
     font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
     -webkit-text-size-adjust:100%;
-    display:flex; flex-direction:column; height:100vh; overflow:hidden;
+    display:flex; flex-direction:column; overflow:hidden;
+    height:100vh;
+    height:100dvh;
+    height:var(--app-vh, 100dvh);
   }
   header{
     flex:0 0 auto; z-index:20;
@@ -108,9 +111,11 @@
 
   .ovl{position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.6); display:none; align-items:flex-end;}
   .ovl.on{display:flex;}
-  .sheet{width:100%; max-height:92vh; overflow-y:auto; background:var(--bg2); border-radius:20px 20px 0 0; padding:16px 16px calc(22px + env(safe-area-inset-bottom)); border-top:1px solid var(--line);}
+  .sheet{width:100%; max-height:92vh; overflow-y:auto; background:var(--bg2); border-radius:20px 20px 0 0; padding:16px 16px calc(22px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); transition:transform .25s ease;}
+  .sheet.dragging{transition:none;}
   .sheet h2{margin:2px 0 14px; font-size:17px;}
-  .grip{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 14px;}
+  .sheetHandle{margin:-16px -16px 0; padding:16px 0 16px; touch-action:none; cursor:grab;}
+  .grip{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto;}
   label{display:block; font-size:12px; color:var(--sub); font-weight:700; margin:12px 0 5px;}
   .hint{color:var(--sub); font-weight:500; font-size:11px;}
   input,select,textarea{width:100%; padding:11px 12px; font-size:15px; background:var(--card); color:var(--txt); border:1px solid var(--line); border-radius:10px; font-family:inherit;}
@@ -175,7 +180,7 @@
 
 <div class="ovl" id="formOvl">
   <div class="sheet">
-    <div class="grip"></div>
+    <div class="sheetHandle"><div class="grip"></div></div>
     <h2 id="formTitle">記録を追加</h2>
 
     <label>画像</label>
@@ -218,7 +223,7 @@
 
 <div class="ovl" id="settingsOvl">
   <div class="sheet">
-    <div class="grip"></div>
+    <div class="sheetHandle"><div class="grip"></div></div>
     <h2>設定</h2>
     <label>テーマ</label>
     <div class="catpick" id="themePick">
@@ -232,7 +237,7 @@
 
 <div class="ovl" id="machineOvl">
   <div class="sheet">
-    <div class="grip"></div>
+    <div class="sheetHandle"><div class="grip"></div></div>
     <h2>機種データ</h2>
     <div class="hint">送ってもらった画像から読み取って登録した、機種ごとの期待値・狙い目の早見表です。チャットで「機種名 ○○G 期待値ある？」のように聞くと、この表を引いて回答します。</div>
     <div id="machineBody"></div>
@@ -244,6 +249,18 @@
 
 <script>
 (function(){
+  // ---------- viewport height fix (mobile keyboard / browser chrome) ----------
+  (function setupVH(){
+    function update(){
+      var h = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+      document.documentElement.style.setProperty('--app-vh', h + 'px');
+    }
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    if(window.visualViewport) window.visualViewport.addEventListener('resize', update);
+  })();
+
   // ---------- theme ----------
   var THEME_KEY = 'sevc_theme';
   var THEME_BG = { dark:'#0e1117', light:'#f4f5f7' };
@@ -819,6 +836,42 @@
     }
   });
   document.getElementById('listSearch').addEventListener('input', function(){ renderList(this.value); });
+
+  // ---------- swipe-down-to-close for bottom sheets ----------
+  function enableSwipeToClose(ovlId, onClose){
+    var ovl = document.getElementById(ovlId);
+    var sheet = ovl.querySelector('.sheet');
+    var handle = ovl.querySelector('.sheetHandle');
+    if(!handle) return;
+    var startY = 0, dy = 0, dragging = false;
+    function close(){ if(onClose) onClose(); else ovl.classList.remove('on'); }
+    function start(y){ dragging = true; dy = 0; sheet.classList.add('dragging'); startY = y; }
+    function move(y){
+      if(!dragging) return;
+      dy = Math.max(0, y - startY);
+      sheet.style.transform = 'translateY('+dy+'px)';
+    }
+    function end(){
+      if(!dragging) return;
+      dragging = false;
+      sheet.classList.remove('dragging');
+      if(dy > 80){
+        sheet.style.transform = 'translateY(100%)';
+        setTimeout(function(){ close(); sheet.style.transform = ''; }, 200);
+      } else {
+        sheet.style.transform = '';
+      }
+    }
+    handle.addEventListener('touchstart', function(e){ start(e.touches[0].clientY); }, {passive:true});
+    handle.addEventListener('touchmove', function(e){ move(e.touches[0].clientY); }, {passive:true});
+    handle.addEventListener('touchend', end);
+    handle.addEventListener('mousedown', function(e){ start(e.clientY); e.preventDefault(); });
+    window.addEventListener('mousemove', function(e){ if(dragging) move(e.clientY); });
+    window.addEventListener('mouseup', end);
+  }
+  enableSwipeToClose('formOvl', closeForm);
+  enableSwipeToClose('settingsOvl');
+  enableSwipeToClose('machineOvl');
 
   renderLog();
 
