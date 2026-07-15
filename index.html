@@ -27,18 +27,17 @@
     --acc-soft-bg:rgba(37,99,235,.08); --acc-soft-fg:#2563eb;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0; padding:0; height:100%;}
+  html,body{margin:0; padding:0;}
   body{
     background:var(--bg); color:var(--txt);
     font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
     -webkit-text-size-adjust:100%;
-    display:flex; flex-direction:column; overflow:hidden;
-    height:100vh;
-    height:100dvh;
-    height:var(--app-vh, 100dvh);
+    display:flex; flex-direction:column;
+    min-height:100vh;
+    min-height:100dvh;
   }
   header{
-    flex:0 0 auto; z-index:20;
+    position:sticky; top:0; z-index:20;
     background:var(--bg);
     border-bottom:1px solid var(--line);
     padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
@@ -50,8 +49,8 @@
   .hbtn.acc{color:var(--acc-soft-fg); border-color:var(--acc-soft-fg); background:var(--acc-soft-bg);}
   .hbtn.icon{padding:8px 10px; font-size:15px;}
 
-  #chatView{flex:1; min-height:0; display:flex; flex-direction:column;}
-  #log{flex:1; overflow-y:auto; padding:14px 12px 10px; -webkit-overflow-scrolling:touch;}
+  #chatView{flex:1; display:flex; flex-direction:column;}
+  #log{flex:1; padding:14px 12px 10px;}
   .empty{text-align:center; color:var(--sub); padding:50px 20px; font-size:13.5px; line-height:1.9;}
   .empty b{color:var(--txt);}
 
@@ -83,7 +82,7 @@
   .stack{display:flex; flex-direction:column; gap:8px; max-width:82%;}
   .row.bot .stack{align-items:flex-start;}
 
-  #inputbar{flex:0 0 auto; display:flex; align-items:flex-end; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--bg);}
+  #inputbar{position:sticky; bottom:0; z-index:15; display:flex; align-items:flex-end; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--bg);}
   .roundbtn{flex:0 0 auto; width:42px; height:42px; border-radius:50%; border:none; background:var(--acc); color:#fff; font-size:22px; font-weight:400; display:flex; align-items:center; justify-content:center;}
   .roundbtn.plus{background:var(--plus);}
   #qtext{flex:1; min-width:0; padding:11px 14px; font-size:15px; background:var(--bg2); color:var(--txt); border:1px solid var(--line); border-radius:21px; resize:none; max-height:110px; font-family:inherit;}
@@ -91,11 +90,11 @@
   .sendbtn{flex:0 0 auto; width:42px; height:42px; border-radius:50%; border:none; background:var(--acc); color:#fff; font-size:16px;}
   .sendbtn:disabled{opacity:.4;}
 
-  #listView{flex:1; min-height:0; display:none; flex-direction:column;}
+  #listView{flex:1; display:none; flex-direction:column;}
   #listView.on{display:flex;}
   #chatView.off{display:none;}
-  .search{margin:10px 12px 6px; width:calc(100% - 24px); padding:10px 13px; font-size:14.5px; background:var(--bg2); color:var(--txt); border:1px solid var(--line); border-radius:12px;}
-  #listBody{flex:1; overflow-y:auto; padding:6px 12px 20px;}
+  .search{position:sticky; top:calc(50px + env(safe-area-inset-top)); z-index:15; margin:10px 12px 6px; width:calc(100% - 24px); padding:10px 13px; font-size:14.5px; background:var(--bg2); color:var(--txt); border:1px solid var(--line); border-radius:12px;}
+  #listBody{flex:1; padding:6px 12px 20px;}
   .lcard{background:var(--card); border:1px solid var(--line); border-radius:14px; margin-bottom:10px; overflow:hidden; display:flex;}
   .lcard img{width:88px; height:88px; object-fit:cover; flex:0 0 auto;}
   .lcard .noimg{width:88px; height:88px; flex:0 0 auto; background:var(--bg2); display:flex; align-items:center; justify-content:center; font-size:24px; color:var(--sub);}
@@ -249,18 +248,6 @@
 
 <script>
 (function(){
-  // ---------- viewport height fix (mobile keyboard / browser chrome) ----------
-  (function setupVH(){
-    function update(){
-      var h = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-      document.documentElement.style.setProperty('--app-vh', h + 'px');
-    }
-    update();
-    window.addEventListener('resize', update);
-    window.addEventListener('orientationchange', update);
-    if(window.visualViewport) window.visualViewport.addEventListener('resize', update);
-  })();
-
   // ---------- theme ----------
   var THEME_KEY = 'sevc_theme';
   var THEME_BG = { dark:'#0e1117', light:'#f4f5f7' };
@@ -774,7 +761,7 @@
       }
     });
     log.innerHTML = html;
-    log.scrollTop = log.scrollHeight;
+    window.scrollTo(0, document.documentElement.scrollHeight);
   }
 
   // ---------- list view ----------
