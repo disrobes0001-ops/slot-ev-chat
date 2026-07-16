@@ -71,17 +71,16 @@
 
   .drawer-overlay{
     position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.5);
-    opacity:0; pointer-events:none; transition:opacity .18s ease;
+    display:none;
   }
-  .drawer-overlay.on{opacity:1; pointer-events:auto;}
+  .drawer-overlay.on{display:block;}
   .drawer{
-    position:fixed; top:0; bottom:0; left:-280px; z-index:41; width:264px; max-width:82vw;
+    position:fixed; top:0; bottom:0; left:0; z-index:41; width:264px; max-width:82vw;
     background:var(--surface); border-right:1px solid var(--border);
-    display:flex; flex-direction:column;
+    display:none; flex-direction:column;
     padding:calc(14px + env(safe-area-inset-top)) 10px calc(14px + env(safe-area-inset-bottom));
-    transition:left .2s ease;
   }
-  .drawer.on{left:0;}
+  .drawer.on{display:flex;}
   .drawer-header{display:flex; align-items:center; gap:9px; padding:4px 10px 16px;}
   .drawer-logo-dot{width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent); flex:0 0 auto;}
   .drawer-app-name{font-size:15px; font-weight:800; letter-spacing:.01em;}
