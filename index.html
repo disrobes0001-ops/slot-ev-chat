@@ -1455,12 +1455,43 @@
     return { text: lines.join('\n'), matchIds: [] };
   }
 
+  var LS_CONTEXT = 'sevc_context_v1';
+  var CONTEXT_TTL_MS = 15*60*1000;
+  function loadContext(){
+    try{
+      var c = JSON.parse(localStorage.getItem(LS_CONTEXT) || 'null');
+      if(c && Date.now() - c.ts < CONTEXT_TTL_MS) return c;
+    }catch(e){}
+    return null;
+  }
+  function saveContext(machineId, g){
+    localStorage.setItem(LS_CONTEXT, JSON.stringify({ machineId: machineId, g: g, ts: Date.now() }));
+  }
+
   function tryMachineLookup(query){
-    var machine = findMachine(query);
+    var context = loadContext();
+    var contextMachine = context && machines.find(function(m){ return m.id === context.machineId; });
+    var explicitMachine = findMachine(query);
+    var machine = explicitMachine || contextMachine;
     if(!machine) return null;
-    if(machine.type === 'guru') return tryGuruLookup(machine, query);
-    if(machine.type === 'simple') return trySimpleLookup(machine, query);
-    return tryHokutoLookup(machine, query);
+    var sameMachineAsContext = !!(contextMachine && machine.id === contextMachine.id);
+
+    var hasG = /\d+\s*(?:[GgＧ]|ゲーム)/.test(query);
+    var effectiveQuery = query;
+    if(!hasG && sameMachineAsContext && context.g != null){
+      effectiveQuery = query + ' ' + context.g + 'G';
+      hasG = true;
+    }
+
+    var result;
+    if(machine.type === 'guru') result = tryGuruLookup(machine, effectiveQuery);
+    else if(machine.type === 'simple') result = trySimpleLookup(machine, effectiveQuery);
+    else result = tryHokutoLookup(machine, effectiveQuery);
+
+    var gMatch = effectiveQuery.match(/(\d+)\s*(?:[GgＧ]|ゲーム)/);
+    var resolvedG = gMatch ? Number(gMatch[1]) : (sameMachineAsContext ? context.g : null);
+    saveContext(machine.id, resolvedG);
+    return result;
   }
 
   function tableHTML(rows){
